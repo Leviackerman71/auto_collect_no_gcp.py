@@ -1,0 +1,42 @@
+name: daily-zid-salla-no-gcp
+on:
+  schedule:
+    - cron: '0 2 * * *'  # كل يوم 02:00 UTC (عدّل لو تحب)
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pandas openpyxl
+
+      - name: Run collector
+        env:
+          TARGET_PER_RUN: 200
+          MAX_PRODUCTS_FOR_SMALL: 500
+        run: |
+          python auto_collect_no_gcp.py
+
+      - name: Commit results
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add results.xlsx || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Daily leads update $(date -u +"%Y-%m-%d")"
+            git push
+          fi
